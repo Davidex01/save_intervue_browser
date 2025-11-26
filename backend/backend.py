@@ -1,18 +1,61 @@
 # backend.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import json
+from pydantic import BaseModel, EmailStr, constr, validator
+import hashlib
+import secrets
+import sqlite3
+from pathlib import Path
 from typing import Dict, Any
+import json
 
 
 # Простое in-memory хранилище интервью. Потом можно заменить на БД.
 INTERVIEWS: Dict[str, Dict[str, Any]] = {}
 
+DB_PATH = Path(__file__).with_name("hr_users.db")
+
+
+def init_db() -> None:
+    conn = sqlite3.connect(DB_PATH)
+    with conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS hr_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                name TEXT NULL,
+                company TEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    conn.close()
+
+
+def get_db_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    hashed = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
+    return f"{salt.hex()}${hashed.hex()}"
+
+
 # если файл у тебя называется generation.py — меняешь тут имя
 from generation import generate_interview_tasks
 
 app = FastAPI()
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    init_db()
+
 
 # --- CORS, чтобы фронт мог дергать бэк из браузера ---
 app.add_middleware(
@@ -29,6 +72,20 @@ class VacancyRequest(BaseModel):
     token: str | None = None
     position: str | None = None
     complexity: str | None = None
+
+
+class HRRegistrationRequest(BaseModel):
+    email: EmailStr
+    password: constr(min_length=8)
+    confirm_password: str
+    name: str | None = None
+    company: str | None = None
+
+    @validator("confirm_password")
+    def passwords_match(cls, value: str, values: Dict[str, Any]) -> str:
+        if "password" in values and value != values["password"]:
+            raise ValueError("Пароли не совпадают")
+        return value
 
 
 # --- Эндпоинт /api/generate-tasks ---
@@ -57,10 +114,41 @@ def generate_tasks(req: VacancyRequest):
         return INTERVIEWS[token]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @app.get("/api/interview/{token}")
 def get_interview(token: str):
     interview = INTERVIEWS.get(token)
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
     return interview
+
+
+@app.post("/api/hr/register")
+def register_hr_user(payload: HRRegistrationRequest):
+    conn = get_db_connection()
+    try:
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO hr_users (email, password_hash, name, company)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    payload.email,
+                    hash_password(payload.password),
+                    payload.name,
+                    payload.company,
+                ),
+            )
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="Пользователь с таким email уже существует")
+    finally:
+        conn.close()
+
+    return {
+        "email": payload.email,
+        "name": payload.name,
+        "company": payload.company,
+        "message": "Регистрация прошла успешно",
+    }
