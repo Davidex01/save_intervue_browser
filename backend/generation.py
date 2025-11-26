@@ -32,9 +32,16 @@ client = OpenAI(
 def generate_task_from_vacancy(vacancy_text: str, level_for_prompt: str) -> Dict:
     """
     Генерируем задачу под вакансию.
-    level_for_prompt: что говорим модели ("easy" / "medium" / "hard"),
-    но потом можем выставить любое название уровня снаружи.
-    Возвращаем dict с полями: level (пока = level_for_prompt), statement, samples, tests.
+
+    Фиксированный формат ввода/вывода:
+
+      Вход:
+        - первая строка: целое число n (количество элементов);
+        - вторая строка: n целых чисел, разделённых пробелами.
+        - если по сути задача про одно число, используй n = 1 и одно число во второй строке.
+
+      Выход:
+        - одно целое число в отдельной строке.
     """
     prompt = f"""
 Ты выступаешь как инженер по найму разработчиков.
@@ -47,33 +54,50 @@ def generate_task_from_vacancy(vacancy_text: str, level_for_prompt: str) -> Dict
 
 Сгенерируй одну ЗАВЕРШЁННУЮ техническую задачу на Python уровня {level_for_prompt} для собеседования.
 
-ОГРАНИЧЕНИЯ ПО ФОРМАТУ (СОБЛЮДАЙ ЖЁСТКО):
+Свяжи задачу по смыслу с вакансией (домен, данные, бизнес-контекст), но по сути это
+чистая алгоритмическая мини-задача.
 
-1. Входные данные: ровно ОДНО целое число (int) в одной строке.
-2. Выходные данные: ровно ОДНО целое число (int) в одной строке.
-3. Решение — функция solve(), которая читает одно целое число из stdin и печатает одно целое число в stdout.
+ФОРМАТ ДАННЫХ (СОБЛЮДАЙ ЖЁСТКО):
 
-Нужны:
-- текстовое описание задачи (statement),
-- 1–3 примера (samples),
-- 5–10 тестов (tests).
+Входные данные:
+- в первой строке задано целое число n (1 ≤ n ≤ разумная константа, например 10^5);
+- во второй строке заданы n целых чисел a_1, a_2, ..., a_n, разделённых пробелами.
 
-Формат ответа строго в JSON, БЕЗ пояснений и текста вокруг, строго:
+Если по смыслу задачи тебе достаточно одного числа, просто используй n = 1 и одно число во второй строке.
+
+Выходные данные:
+- выведи ОДНО целое число в отдельной строке.
+- НИКАКОГО дополнительного текста ("Ответ:", комментариев и т.п.) — только число.
+
+ОФОРМЛЕНИЕ УСЛОВИЯ:
+
+- Нормальное олимпиадное условие на русском с разделами:
+  "Описание задачи", "Формат ввода", "Формат вывода", "Ограничения", "Пример".
+- В разделе "Формат ввода" НЕДВУСМЫСЛЕННО напиши именно этот формат (n и n чисел).
+- В разделе "Формат вывода" напиши, что нужно вывести одно целое число.
+
+ФОРМАТ ОТВЕТА:
+
+Верни строго JSON БЕЗ пояснений вокруг:
 
 {{
-  "statement": "<текст задачи>",
+  "statement": "<полный текст условия задачи со всеми разделами>",
   "samples": [
-    {{"input": "<одно целое число во входе>", "output": "<одно целое число в выводе>"}}
+    {{"input": "<пример ввода: две строки (n и n чисел)>", "output": "<пример вывода: одно число и перевод строки>"}}
   ],
   "tests": [
-    {{"input": "<одно целое число во входе>", "output": "<одно целое число в выводе>"}}
+    {{"input": "<ввод для теста: две строки (n и n чисел)>", "output": "<ожидаемый вывод: одно число и перевод строки>"}}
   ]
 }}
 
-Требования к input/output:
-- input: только одно целое число и перевод строки (например "10\\n").
-- output: только одно целое число и перевод строки (например "100\\n").
-- НЕ ИСПОЛЬЗУЙ вещественные числа и точки (".") в примерах и тестах.
+Требования к samples и tests:
+- во всех input:
+  * первая строка — одно целое число n,
+  * вторая строка — n целых чисел, разделённых пробелами,
+  * в конце входа должен быть перевод строки;
+- во всех output:
+  * одно целое число (целочисленный ответ),
+  * никаких вещественных чисел.
 """
 
     resp = client.chat.completions.create(
@@ -85,7 +109,7 @@ def generate_task_from_vacancy(vacancy_text: str, level_for_prompt: str) -> Dict
             },
             {"role": "user", "content": textwrap.dedent(prompt).strip()},
         ],
-        temperature=0.4,
+        temperature=0.5,
     )
 
     content = resp.choices[0].message.content.strip()
@@ -105,36 +129,47 @@ def generate_task_from_vacancy(vacancy_text: str, level_for_prompt: str) -> Dict
     samples = data.get("samples") or []
     tests = data.get("tests") or []
 
-    # Фильтруем тесты: оставляем только те, где во входе/выходе ровно одно целое число
-    def normalize_int_io(s: str) -> str:
+    # --- нормализуем ТОЛЬКО output до целого числа ---
+    def normalize_output_int(s: str) -> str:
         s = s.strip()
-        # не допускаем точек
+        # сначала целое
+        if re.fullmatch(r"-?\d+", s):
+            return s + "\n"
+        # допускаем X.0 / X.00
         if "." in s:
-            raise ValueError("Обнаружено вещественное число, а нужны только целые")
-        # должна быть одна целочисленная запись
-        if not re.fullmatch(r"-?\d+", s):
-            raise ValueError(f"Строка не похожа на одно целое число: {s!r}")
-        return s + "\n"
+            try:
+                val = float(s)
+            except ValueError:
+                raise ValueError(f"Output не число: {s!r}")
+            if val.is_integer():
+                return f"{int(val)}\n"
+            raise ValueError(f"Output с ненулевой дробной частью: {s!r}")
+        raise ValueError(f"Output не похож на одно целое число: {s!r}")
 
     clean_tests = []
     for t in tests:
-        try:
-            inp_raw = t.get("input", "")
-            out_raw = t.get("output", "")
-            if not inp_raw or not out_raw:
-                continue
-            inp = normalize_int_io(inp_raw)
-            out = normalize_int_io(out_raw)
-            clean_tests.append({"input": inp, "output": out})
-        except ValueError:
-            # пропускаем тесты с дробями/мусором
+        inp_raw = t.get("input", "")
+        out_raw = t.get("output", "")
+        if not inp_raw or not out_raw:
             continue
+
+        try:
+            out = normalize_output_int(out_raw)
+        except ValueError:
+            continue
+
+        # Вход просто доводим до корректного окончания, структуру не трогаем
+        inp = inp_raw
+        if not inp.endswith("\n"):
+            inp = inp + "\n"
+
+        clean_tests.append({"input": inp, "output": out})
 
     if not clean_tests:
         raise ValueError("Модель вернула задачу без пригодных целочисленных тестов")
 
     task = {
-        "level": level_for_prompt,  # потом можем переписать снаружи
+        "level": level_for_prompt,
         "statement": statement,
         "samples": samples,
         "tests": clean_tests,
@@ -142,22 +177,23 @@ def generate_task_from_vacancy(vacancy_text: str, level_for_prompt: str) -> Dict
     return task
 
 
+
+
 # --------------------------------
 # РЕШЕНИЕ ЗАДАЧИ ЧЕРЕЗ CODE-МОДЕЛЬ
 # --------------------------------
 
-def solve_task_with_llm(task: Dict) -> str:
+def solve_task_with_llm(task: Dict, attempt: int = 1) -> str:
     """
     Просим qwen-coder написать решение на Python.
-    Ожидаем, что он вернёт код с функцией solve(),
-    которая читает одно целое число из stdin и печатает одно целое число в stdout.
+    attempt — номер попытки (1, 2, 3...), чтобы немного менять промпт и ломать кэш.
     """
     statement = task["statement"]
     samples = task["samples"]
 
     samples_text = ""
     if samples:
-        samples_text = "\nПримеры:\n" + "\n".join(
+        samples_text = "\nПримеры ввода и вывода:\n" + "\n".join(
             f"Ввод:\n{ s['input'] }\nВывод:\n{ s['output'] }\n" for s in samples
         )
 
@@ -172,15 +208,40 @@ def solve_task_with_llm(task: Dict) -> str:
 
 {samples_text}
 
+Формат данных (важно для реализации):
+
+- На первой строке входа подаётся целое число n — количество элементов.
+- На второй строке подаётся n целых чисел, разделённых пробелами.
+- Если в конкретных тестах n = 1, то во второй строке просто одно число.
+- В выход нужно напечатать ОДНО целое число в отдельной строке.
+
+Это попытка написать решение номер {attempt}.
+Если предыдущий подход мог быть неправильным, попробуй сейчас другой способ,
+но обязательно соблюдай формат ввода/вывода.
+
 Напиши корректное, рабочее решение на Python.
 
-Требования:
+ОЧЕНЬ ВАЖНО:
+
+1. Строго соблюдай формат ввода и вывода:
+   - читай n и массив именно так:
+       n = int(input().strip())
+       arr = list(map(int, input().split()))
+   - напечатай только одно число: print(answer)
+   Любое отклонение по формату считается неверным решением.
+
+2. Используй примеры (samples) для самопроверки:
+   - мысленно подставь примеры во вход;
+   - убедись, что твой код даёт точно такой же вывод, как в примерах.
+
+Требования к коду:
+
 - Оформи решение как функцию solve().
-- Функция solve() должна читать ОДНО целое число из стандартного ввода (stdin)
-  и печатать ОДНО целое число в стандартный вывод (stdout).
-- Не печатай ничего лишнего (без дебаг-печати, без текстовых подсказок).
-- НЕ возвращай результат из solve(), просто печатай его через print.
+- Функция solve() должна читать данные из stdin и печатать результат в stdout через print().
+- Не печатай ничего лишнего (никаких "Введите n:", "Ответ:" и т.п.).
+- Не возвращай значение из solve(), просто печатай результат.
 - Не включай примеры ввода/вывода в код.
+- Код должен быть самодостаточным: достаточно запустить файл, чтобы он прочитал stdin и напечатал ответ.
 
 Верни ТОЛЬКО код, без пояснений, без ``` и без лишнего текста вокруг.
 """
@@ -190,22 +251,23 @@ def solve_task_with_llm(task: Dict) -> str:
         messages=[
             {
                 "role": "system",
-                "content": "/no_think Ты опытный Python-разработчик и пишешь чистый рабочий код.",
+                "content": "/no_think Ты опытный Python-разработчик и пишешь корректные решения под строгие автотесты.",
             },
             {"role": "user", "content": textwrap.dedent(prompt).strip()},
         ],
-        temperature=0.2,
+        temperature=0.35,  # можно чуть выше, чтобы код различался
     )
 
     code = resp.choices[0].message.content.strip()
 
-    # На всякий случай, если модель вернула код в ```python ... ```
     if code.startswith("```"):
         code = code.strip("`")
         if code.lower().startswith("python"):
             code = code[len("python") :].lstrip()
 
     return code
+
+
 
 
 # --------------------------------
@@ -285,34 +347,59 @@ if __name__ == "__main__":
 # ГЕНЕРАЦИЯ ПРОВЕРЕННОЙ ЗАДАЧИ
 # --------------------------------
 
-def generate_verified_task(vacancy_text: str, level_for_prompt: str, max_attempts: int = 20) -> Dict:
+def generate_verified_task(
+    vacancy_text: str,
+    level_for_prompt: str,
+    max_task_attempts: int = 10,
+    max_code_attempts: int = 3,
+) -> Dict:
     """
     Пытаемся сгенерировать задачу нужного уровня (для промпта)
     и проверить её через qwen-coder + локальные тесты.
-    Если получается — возвращаем task (без хранения решения).
-    Если нет — кидаем ошибку.
+
+    max_task_attempts  – сколько разных задач пробуем сгенерировать.
+    max_code_attempts  – сколько раз даём code-модели шанс решить одну и ту же задачу.
     """
-    for attempt in range(1, max_attempts + 1):
-        print(f"[{level_for_prompt}] Попытка генерации задачи #{attempt}...")
+    for task_attempt in range(1, max_task_attempts + 1):
+        print(f"[{level_for_prompt}] Попытка генерации задачи #{task_attempt}...")
         try:
             task = generate_task_from_vacancy(vacancy_text, level_for_prompt)
         except Exception as e:
             print(f"[{level_for_prompt}] Ошибка при генерации задачи: {e}")
             continue
 
-        print(f"[{level_for_prompt}] Пытаемся решить с помощью code-модели...")
-        code = solve_task_with_llm(task)
+        # Несколько попыток написать решение для ОДНОЙ задачи
+        for code_attempt in range(1, max_code_attempts + 1):
+            print(
+                f"[{level_for_prompt}] Пытаемся решить с помощью code-модели "
+                f"(попытка кода #{code_attempt})..."
+            )
+            try:
+                code = solve_task_with_llm(task, attempt=code_attempt)
+            except Exception as e:
+                print(f"[{level_for_prompt}] Ошибка при генерации кода: {e}")
+                continue
 
-        ok = run_code_on_tests(code, task["tests"])
-        if ok:
-            print(f"[{level_for_prompt}] Успешно: задача прошла все тесты.")
-            return task
-        else:
-            print(f"[{level_for_prompt}] Решение не прошло тесты, пробуем сгенерировать другую задачу...")
+            ok = run_code_on_tests(code, task["tests"])
+            if ok:
+                print(f"[{level_for_prompt}] Успешно: задача прошла все тесты.")
+                return task
+            else:
+                print(
+                    f"[{level_for_prompt}] Этот вариант решения не прошёл тесты, "
+                    f"пробуем другой код для той же задачи..."
+                )
+
+        print(
+            f"[{level_for_prompt}] Ни одно из решений не прошло тесты, "
+            f"генерируем новую задачу..."
+        )
 
     raise RuntimeError(
-        f"Не удалось получить рабочую задачу уровня {level_for_prompt} за {max_attempts} попыток"
+        f"Не удалось получить рабочую задачу уровня {level_for_prompt} "
+        f"за {max_task_attempts} попыток"
     )
+
 
 
 # --------------------------------
@@ -320,34 +407,23 @@ def generate_verified_task(vacancy_text: str, level_for_prompt: str, max_attempt
 # --------------------------------
 
 def generate_interview_tasks(vacancy_text: str) -> Dict:
-    """
-    Генерируем 3 задачи под одну вакансию.
-    Фактически ВСЕ три генерим как easy (для устойчивости),
-    но в выходном JSON уровни называем: easy, medium, hard.
-    Возвращаем JSON-совместимый dict:
-    {
-      "vacancy": "...",
-      "tasks": [
-        {level, statement, samples, tests},
-        ...
-      ]
-    }
-    """
     label_levels = ["easy", "medium", "hard"]
     tasks = []
 
     for label in label_levels:
-        # Для генерации всегда просим easy
-        task = generate_verified_task(vacancy_text, level_for_prompt="easy", max_attempts=20)
-        # А наружу маркируем как easy/medium/hard в зависимости от позиции
+        task = generate_verified_task(
+            vacancy_text,
+            level_for_prompt=label,   # ← вот так
+            max_task_attempts=20,
+        )
         task["level"] = label
         tasks.append(task)
 
-    result = {
+    return {
         "vacancy": vacancy_text,
         "tasks": tasks,
     }
-    return result
+
 
 
 # --------------------------------
