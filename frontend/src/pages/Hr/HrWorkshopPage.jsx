@@ -5,8 +5,6 @@ import Button from "../../components/ui/Button.jsx";
 
 const TOPICS = [
   { id: "algorithms", label: "Алгоритмы" },
-  { id: "math", label: "Математика" },
-  { id: "sql", label: "SQL" },
   { id: "product", label: "Продуктовые" },
 ];
 

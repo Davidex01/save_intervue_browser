@@ -15,25 +15,28 @@ import SessionDeclinedPage from "../pages/Session/SessionDeclinedPage.jsx";
 import SessionInterviewPage from "../pages/Session/SessionInterviewPage.jsx";
 import SessionReportPage from "../pages/Session/SessionReportPage.jsx";
 
+import DemoStartPage from "../pages/Demo/DemoStartPage.jsx";
+import DemoInterviewPage from "../pages/Demo/DemoInterviewPage.jsx";
+import DemoReportPage from "../pages/Demo/DemoReportPage.jsx";
+
 function AppRouter() {
   return (
     <Routes>
-      {/* Публичная часть + HR-часть под общим layout'ом */}
+      {/* Публичная часть + HR */}
       <Route element={<RootLayout />}>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/demo" element={<DemoStartPage />} />
+        <Route path="/demo/interview" element={<DemoInterviewPage />} />
+        <Route path="/demo/report" element={<DemoReportPage />} />
         <Route path="/hr/workshop" element={<HrWorkshopPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
 
-      {/* Интервью по приглашению (отдельный layout без маркетинговых блоков) */}
+      {/* Интервью по приглашению */}
       <Route path="/session/:token" element={<SessionLayout />}>
-        {/* /session/:token → экран согласия/правил */}
         <Route index element={<SessionConsentPage />} />
-        {/* /session/:token/declined → отказ от условий */}
         <Route path="declined" element={<SessionDeclinedPage />} />
-        {/* /session/:token/interview → само интервью (IDE + таймер) */}
         <Route path="interview" element={<SessionInterviewPage />} />
-        {/* /session/:token/report → итоговый отчёт/статистика */}
         <Route path="report" element={<SessionReportPage />} />
       </Route>
     </Routes>

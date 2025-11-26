@@ -1,8 +1,10 @@
+// src/pages/Session/SessionInterviewPage.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button.jsx";
 
 const TABS = {
+  // оставим enum на будущее, но фактически вкладки больше не используем
   STATEMENT: "statement",
   EDITOR: "editor",
   TESTS: "tests",
@@ -12,18 +14,48 @@ function SessionInterviewPage() {
   const { token } = useParams();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState(TABS.STATEMENT);
-
   const INTERVIEW_DURATION_SECONDS = 45 * 60;
 
   const [remainingSeconds, setRemainingSeconds] = useState(
     INTERVIEW_DURATION_SECONDS
   );
-
   const [hasRedirectedOnTimeout, setHasRedirectedOnTimeout] =
     useState(false);
 
-  // Восстановление стартового времени из localStorage (как было)
+  // Мок-данные задачи
+  const task = {
+    title: "Найти дубликаты в массиве",
+    description:
+      "Напишите функцию, которая по массиву целых чисел возвращает все элементы, встречающиеся более одного раза.",
+    constraints: [
+      "1 ≤ n ≤ 10^5",
+      "Элементы массива — целые числа по модулю не более 10^9",
+    ],
+    examples: [
+      {
+        input: "[1, 2, 3, 2, 4, 1]",
+        output: "[1, 2]",
+        explanation: "1 и 2 встречаются по два раза",
+      },
+      {
+        input: "[5, 5, 5]",
+        output: "[5]",
+        explanation: "5 встречается три раза",
+      },
+    ],
+    timeLimit: "1 секунда",
+    memoryLimit: "256 МБ",
+  };
+
+  const [code, setCode] = useState(
+    `function findDuplicates(arr) {\n  // Напишите ваше решение здесь\n}`
+  );
+
+  const [isRunningVisibleTests, setIsRunningVisibleTests] =
+    useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ===== ВОССТАНОВЛЕНИЕ ВРЕМЕНИ (как раньше) =====
   useEffect(() => {
     if (!token) return;
 
@@ -75,44 +107,13 @@ function SessionInterviewPage() {
     return () => clearInterval(intervalId);
   }, [remainingSeconds]);
 
-  // Автопереход на отчёт, когда время вышло
+  // Автопереход на отчёт по окончании времени
   useEffect(() => {
     if (remainingSeconds <= 0 && !hasRedirectedOnTimeout && token) {
       setHasRedirectedOnTimeout(true);
       navigate(`/session/${token}/report`, { replace: true });
     }
   }, [remainingSeconds, hasRedirectedOnTimeout, navigate, token]);
-
-  const task = {
-    title: "Найти дубликаты в массиве",
-    description:
-      "Напишите функцию, которая по массиву целых чисел возвращает все элементы, встречающиеся более одного раза.",
-    constraints: [
-      "1 ≤ n ≤ 10^5",
-      "Элементы массива — целые числа по модулю не более 10^9",
-    ],
-    examples: [
-      {
-        input: "[1, 2, 3, 2, 4, 1]",
-        output: "[1, 2]",
-        explanation: "1 и 2 встречаются по два раза",
-      },
-      {
-        input: "[5, 5, 5]",
-        output: "[5]",
-        explanation: "5 встречается три раза",
-      },
-    ],
-    timeLimit: "1 секунда",
-    memoryLimit: "256 МБ",
-  };
-
-  const [code, setCode] = useState(
-    `function findDuplicates(arr) {\n  // Напишите ваше решение здесь\n}`
-  );
-
-  const [isRunningVisibleTests, setIsRunningVisibleTests] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleRunVisibleTests = () => {
     setIsRunningVisibleTests(true);
@@ -125,6 +126,7 @@ function SessionInterviewPage() {
     setIsSubmitting(true);
     setTimeout(() => {
       setIsSubmitting(false);
+      // TODO: здесь отправка решения на бэк, смена задачи/состояния
     }, 1500);
   };
 
@@ -144,24 +146,23 @@ function SessionInterviewPage() {
         isTimeOver={remainingSeconds <= 0}
       />
 
-      <div className="session-interview__body">
-        <div className="session-interview__main">
-          <InterviewTabs activeTab={activeTab} onChangeTab={setActiveTab} />
+      <div className="session-interview__body session-interview__body--split">
+        {/* ЛЕВАЯ КОЛОНКА: УСЛОВИЕ + ТЕСТЫ */}
+        <div className="session-interview__left">
+          <TaskStatement task={task} />
+          <TestsPane />
+        </div>
 
-          <div className="session-interview__content">
-            {activeTab === TABS.STATEMENT && <TaskStatement task={task} />}
-            {activeTab === TABS.EDITOR && (
-              <EditorPane
-                code={code}
-                onChangeCode={setCode}
-                onRunVisibleTests={handleRunVisibleTests}
-                onSubmitSolution={handleSubmitSolution}
-                isRunningVisibleTests={isRunningVisibleTests}
-                isSubmitting={isSubmitting}
-              />
-            )}
-            {activeTab === TABS.TESTS && <TestsPane />}
-          </div>
+        {/* ПРАВАЯ КОЛОНКА: РЕДАКТОР */}
+        <div className="session-interview__right">
+          <EditorPane
+            code={code}
+            onChangeCode={setCode}
+            onRunVisibleTests={handleRunVisibleTests}
+            onSubmitSolution={handleSubmitSolution}
+            isRunningVisibleTests={isRunningVisibleTests}
+            isSubmitting={isSubmitting}
+          />
         </div>
       </div>
     </div>
@@ -185,46 +186,6 @@ function InterviewTopBar({ remainingTime, isTimeOver }) {
           </strong>
         </div>
       </div>
-    </div>
-  );
-}
-
-function InterviewTabs({ activeTab, onChangeTab }) {
-  return (
-    <div className="session-interview__tabs" role="tablist">
-      <button
-        type="button"
-        className={
-          activeTab === TABS.STATEMENT
-            ? "session-interview__tab is-active"
-            : "session-interview__tab"
-        }
-        onClick={() => onChangeTab(TABS.STATEMENT)}
-      >
-        Условие
-      </button>
-      <button
-        type="button"
-        className={
-          activeTab === TABS.EDITOR
-            ? "session-interview__tab is-active"
-            : "session-interview__tab"
-        }
-        onClick={() => onChangeTab(TABS.EDITOR)}
-      >
-        Редактор
-      </button>
-      <button
-        type="button"
-        className={
-          activeTab === TABS.TESTS
-            ? "session-interview__tab is-active"
-            : "session-interview__tab"
-        }
-        onClick={() => onChangeTab(TABS.TESTS)}
-      >
-        Тесты
-      </button>
     </div>
   );
 }
@@ -293,7 +254,9 @@ function EditorPane({
             onClick={onRunVisibleTests}
             disabled={isRunningVisibleTests || isSubmitting}
           >
-            {isRunningVisibleTests ? "Запуск тестов..." : "Запустить видимые тесты"}
+            {isRunningVisibleTests
+              ? "Запуск тестов..."
+              : "Запустить видимые тесты"}
           </Button>
           <Button
             variant="primary"

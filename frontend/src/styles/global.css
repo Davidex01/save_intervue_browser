@@ -90,14 +90,14 @@ body {
 }
 
 .ui-button--secondary {
-  background-color: #e5e7eb; /* gray-200 */
-  border-color: #e5e7eb;
-  color: #111827;
+  background-color: #2563eb; /* blue-600 */
+  border-color: #2563eb;
+  color: #ffffff;
 }
 
 .ui-button--secondary:hover {
-  background-color: #d1d5db; /* gray-300 */
-  border-color: #d1d5db;
+  background-color: #1d4ed8; /* blue-700 */
+  border-color: #1d4ed8;
 }
 
 .ui-button--ghost {
@@ -107,7 +107,7 @@ body {
 }
 
 .ui-button--ghost:hover {
-  background-color: #e5e7eb; /* лёгкий hover */
+  background-color: #e5e7eb;
 }
 
 .ui-button--disabled,
@@ -803,6 +803,35 @@ body {
   margin-top: 0.5rem;
 }
 
+/* Новый split-режим: условие+тесты слева, редактор справа */
+.session-interview__body--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr);
+  gap: 0.75rem;
+}
+
+.session-interview__left,
+.session-interview__right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Правая колонка повторяет стили main-карточки */
+.session-interview__right .session-interview__pane--editor,
+.session-interview__left .session-interview__pane {
+  background-color: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.75rem 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .session-interview__body--split {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 .session-interview__sidebar {
   background-color: #f9fafb;
@@ -982,6 +1011,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  justify-content: flex-end; 
 }
 
 .session-interview__editor-body {
@@ -1737,4 +1767,79 @@ body {
   margin-top: 2rem;
   display: flex;
   justify-content: flex-end;
+}
+
+/* Demo start */
+
+.demo-start {
+  padding: 2.5rem 0 3rem;
+  background-color: #f3f4f6;
+}
+
+.demo-start__inner {
+  max-width: 800px;
+}
+
+.demo-start__inner h1 {
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.demo-start__subtitle {
+  font-size: 0.95rem;
+  color: #4b5563;
+  margin-bottom: 1rem;
+}
+
+.demo-start__list {
+  padding-left: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+.demo-start__list li {
+  list-style: disc;
+  font-size: 0.95rem;
+  color: #4b5563;
+  margin-bottom: 0.2rem;
+}
+
+.demo-start__actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.demo-interview {
+  padding: 2rem 0 2.5rem;
+  background-color: #f3f4f6;
+}
+
+.demo-interview__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.demo-interview__task-nav {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.demo-interview__footer {
+  margin-top: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;   
+  background-color: #eff6ff; 
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: flex-start;   
+}
+
+.demo-interview__footer-text {
+  font-size: 0.92rem;
+  color: #1f2937;       
 }

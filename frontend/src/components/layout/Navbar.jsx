@@ -14,6 +14,7 @@ function Navbar() {
 
   const isLanding = location.pathname === "/";
   const isHrWorkshop = location.pathname.startsWith("/hr");
+  const isDemoRoute = location.pathname.startsWith("/demo");
 
   const [hrUser, setHrUser] = useState(null);
 
@@ -104,7 +105,6 @@ function Navbar() {
   };
 
   const hrLabel = hrUser?.email || "";
-  const showDemoButton = !isHrWorkshop;
 
   return (
     <>
@@ -143,15 +143,27 @@ function Navbar() {
               </Button>
             )}
 
-            {showDemoButton && (
-              <Button
-                as={Link}
-                to="/demo"
-                variant="primary"
-                className="navbar__button"
-              >
-                Попробовать демо
-              </Button>
+            {/* Справа-сверху: демо или возврат на главную */}
+            {!isHrWorkshop && (
+              isDemoRoute ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="navbar__button"
+                  onClick={() => navigate("/")}
+                >
+                  Вернуться на главную
+                </Button>
+              ) : (
+                <Button
+                  as={Link}
+                  to="/demo"
+                  variant="primary"
+                  className="navbar__button"
+                >
+                  Попробовать демо
+                </Button>
+              )
             )}
           </div>
         </Container>
