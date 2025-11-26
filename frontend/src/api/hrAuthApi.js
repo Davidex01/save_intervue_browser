@@ -14,7 +14,7 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const error = new Error(
-      data?.message || `Request failed with status ${res.status}`
+      data?.detail || data?.message || `Request failed with status ${res.status}`
     );
     error.status = res.status;
     error.data = data;
@@ -24,16 +24,14 @@ async function request(path, options = {}) {
   return data;
 }
 
-// Регистрация HR
 export function registerHr(payload) {
-  // payload: { email, password, name?, company? }
+  // payload: { email, password, confirm_password, name?, company? }
   return request("/register", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-// Логин HR
 export function loginHr(payload) {
   // payload: { email, password }
   return request("/login", {

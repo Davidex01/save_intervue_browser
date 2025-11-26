@@ -1,12 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import Container from "../../components/ui/Container.jsx";
-import Section from "../../components/ui/Section.jsx";
 import Button from "../../components/ui/Button.jsx";
-
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
 import TokenInputModal from "../../components/session/TokenInputModal.jsx";
-
+import { getHrUser } from "../../utils/hrAuth.js";
+import Section from "../../components/ui/Section.jsx";
 
 function LandingPage() {
   return (
@@ -23,7 +21,16 @@ function LandingPage() {
 
 function HeroSection() {
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
+  const [hrUser, setHrUser] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // читаем того же HR-пользователя, что и Navbar
+    const stored = getHrUser();
+    if (stored) {
+      setHrUser(stored);
+    }
+  }, []);
 
   const handleStartInterviewClick = () => {
     setIsTokenModalOpen(true);
@@ -32,6 +39,10 @@ function HeroSection() {
   const handleTokenSubmit = (token) => {
     setIsTokenModalOpen(false);
     navigate(`/session/${encodeURIComponent(token)}`);
+  };
+
+  const handleGoToWorkshop = () => {
+    navigate("/hr/workshop");
   };
 
   return (
@@ -60,8 +71,19 @@ function HeroSection() {
                 to="/demo"
                 variant="secondary"
               >
-                Демо для компаний
+                Демо для соискателя
               </Button>
+
+              {/* Кнопка мастерской — только для залогиненных HR */}
+              {hrUser && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleGoToWorkshop}
+                >
+                  Перейти в мастерскую
+                </Button>
+              )}
             </div>
 
             <p className="landing-hero__note">
@@ -87,7 +109,7 @@ function HeroSection() {
                 </div>
                 <div className="hero-mockup__editor-body">
                   <code>
-                    {`def find_duplicates(arr):\n    seen = set()\n    dup = set()\n    for n in arr:\n        if n in seen:\n            dup.add(n)\n        else:\n            seen.add(n)\n    return list(dup)\n`}
+                    {`def find_duplicates(arr):\n    # Напишите ваше решение здесь\n    pass\n`}
                   </code>
                 </div>
               </div>
@@ -104,6 +126,7 @@ function HeroSection() {
     </>
   );
 }
+
 
 function ForCandidatesSection() {
   return (
@@ -331,6 +354,13 @@ function AntiCheatSection() {
               </p>
             </li>
             <li className="landing-list__item">
+              <h3>Анализ оригинальности решения</h3>
+              <p>
+                Код анализируется на предмет шаблонных и заимствованных
+                решений, учитывая при этом типичные паттерны для задач.
+              </p>
+            </li>
+            <li className="landing-list__item">
               <h3>Сигналы активности браузера</h3>
               <p>
                 Переключения вкладок, активность DevTools и другие события
@@ -339,6 +369,7 @@ function AntiCheatSection() {
             </li>
           </ul>
         </div>
+
         <div className="landing-grid__col">
           <div className="landing-card landing-card--note">
             <p>
