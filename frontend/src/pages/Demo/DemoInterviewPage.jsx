@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button.jsx";
+import { useAntiCheat } from "../../utils/useAntiCheat.js";
 
 const DEMO_TASKS = [
   {
@@ -88,6 +89,10 @@ function DemoInterviewPage() {
 
   const [isRunningVisibleTests, setIsRunningVisibleTests] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- Защита от списывания ---
+  // Включаем защиту только когда интервью активно (время не истекло)
+  useAntiCheat(remainingSeconds > 0);
 
   // Таймер
   useEffect(() => {

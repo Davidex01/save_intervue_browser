@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button.jsx";
 import { fetchInterviewByToken, submitInterview } from "../../api/interviewApi.js";
+import { useAntiCheat } from "../../utils/useAntiCheat.js";
 
 const INTERVIEW_DURATION_SECONDS = 45 * 60; // 45 минут
 
@@ -26,6 +27,10 @@ function SessionInterviewPage() {
   const [textAnswers, setTextAnswers] = useState([]);  // массив текстовых ответов
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- Защита от списывания ---
+  // Включаем защиту только когда интервью загружено и не завершено
+  useAntiCheat(interview !== null && remainingSeconds > 0);
 
   // --- Загрузка интервью по токену ---
   useEffect(() => {
