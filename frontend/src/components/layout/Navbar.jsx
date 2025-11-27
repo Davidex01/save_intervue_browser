@@ -46,8 +46,7 @@ function Navbar() {
     try {
       const data = await loginHr({ email, password });
 
-      const user = data.user || {
-        id: data.id,
+      const user = {
         email: data.email,
         name: data.name,
         company: data.company,
@@ -73,14 +72,20 @@ function Navbar() {
   };
 
   const handleRegisterSubmit = async (payload) => {
+    // payload должен содержать: { email, password, confirmPassword, name, company }
     setIsRegistering(true);
     setRegisterError("");
 
     try {
-      const data = await registerHr(payload);
+      const data = await registerHr({
+        email: payload.email,
+        password: payload.password,
+        confirm_password: payload.confirmPassword, // ВАЖНО
+        name: payload.name,
+        company: payload.company,
+      });
 
-      const user = data.user || {
-        id: data.id,
+      const user = {
         email: data.email,
         name: data.name,
         company: data.company,
@@ -94,6 +99,10 @@ function Navbar() {
     } catch (e) {
       if (e.status === 409) {
         setRegisterError("Пользователь с таким e-mail уже существует.");
+      } else if (e.status === 422) {
+        setRegisterError(
+          "Данные не прошли проверку. Проверьте e-mail и пароль (не короче 8 символов, пароли должны совпадать)."
+        );
       } else {
         setRegisterError(
           "Не удалось зарегистрироваться. Попробуйте ещё раз."

@@ -48,11 +48,12 @@ function HrRegisterForm({ onSubmit, isSubmitting = false, error }) {
     if (Object.keys(errors).length > 0) return;
 
     onSubmit?.({
-      email: form.email.trim(),
-      password: form.password,
-      name: form.name.trim() || undefined,
-      company: form.company.trim() || undefined,
-    });
+    email: form.email.trim(),
+    password: form.password,
+    confirmPassword: form.confirmPassword, // camelCase
+    name: form.name.trim() || undefined,
+    company: form.company.trim() || undefined,
+  });
   };
 
   const showError = (field) => touched[field] && errors[field];
